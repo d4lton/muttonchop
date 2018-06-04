@@ -1,0 +1,93 @@
+#!/usr/bin/env node
+
+// =================================================================================================
+//
+// MuttonChop v1.0.0
+// Nanigans, Inc.
+// Copyright ©2018, All Rights Reserved
+//
+// =================================================================================================
+
+const fs = require('fs');
+const Mustache = require('mustache');
+const meow = require('meow');
+
+//
+// Get command-line input:
+//
+
+const usage = 'usage: $ muttonchop [--jsonfile <json-data-file>] [--output <output-html-file>] <main-html-file>';
+const cli = meow(usage, {
+  flags: {
+    jsonfile: {
+      type: 'string',
+      alias: 'json'
+    },
+    output: {
+      type: 'string'
+    }
+  }
+});
+
+if (cli.input.length === 0) {
+  console.log(usage);
+  process.exit(1);
+}
+
+const mainfilename = cli.input[0];
+
+//
+// Load data file if requested
+//
+
+var data = {};
+if (cli.flags.jsonfile) {
+  data = JSON.parse(fs.readFileSync(cli.flags.jsonfile).toString());
+}
+
+//
+// Read the main mustache file
+//
+
+const mainfile = fs.readFileSync(mainfilename).toString();
+
+//
+// Extract all "partial" (aka include) files
+//
+
+var regex = /{{\s*>\s*(.+?)\s*}}/ig;
+var match, partials = [];
+while ((match = regex.exec(mainfile)) !== null) { partials.push(match[1]); }
+
+//
+// Create a Promise to read each of the partials
+//
+
+var promises = partials.map(function(partial) {
+  return new Promise(function(resolve, reject) {
+    fs.readFile(partial + '.mustache', function(error, data) {
+      if (error) {
+        reject(error);
+      } else {
+        resolve({partial: partial, data: data.toString()});
+      }
+    });
+  });
+});
+
+//
+// Load in all the partials, then render the main mustache file
+//
+
+Promise.all(promises).then(function(partialsResults) {
+  var combinedPartials = {};
+  partialsResults.forEach(function(partialsResult) {
+    combinedPartials[partialsResult.partial] = partialsResult.data;
+  });
+  var output = Mustache.render(mainfile, data, combinedPartials);
+  if (cli.flags.output) {
+    fs.writeFileSync(cli.flags.output, output);
+  } else {
+    console.log(output);
+  }
+});
