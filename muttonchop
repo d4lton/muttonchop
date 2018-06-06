@@ -150,7 +150,9 @@ function retrieveItems(metadata) {
     var url = 'http://lxprtsapi01.nanigans.com:8080/product-feed/sku?app_id=' + metadata.app_id + '&feed_id=' + metadata.feed_id + '&sku=' + sku;
     var response = syncrequest('GET', url);
     var json = response.body.toString();
-    metadata.item_data[itemId] = JSON.parse(json);
+    if (json) {
+      metadata.item_data[itemId] = JSON.parse(json);
+    }
   }
 }
 
@@ -178,13 +180,16 @@ function parseTemplate(pathname, data, context) {
     if (data.metadata) {
       matches = getMustacheMatches(template);
       matches.forEach(function(match) {
-        var replacement = '';
-        if (match.parts.length === 2) {
-          replacement = match.parts[1];
-        } else {
-          replacement = data.metadata.item_data[match.parts[1]].data.columns[match.parts[2]][0];
+        // if the mustache token is something like {{ "IMAGE" "item1" "image_link" }} and we have data for item1, do replacement
+        if (match.parts.length > 2) {
+          var itemId = match.parts[1];
+          var columnId = match.parts[2];
+          var itemData = data.metadata.item_data[itemId];
+          if (itemData && itemData.data) {
+            replacement = itemData.data.columns[columnId][0];
+            template = template.replace(match.token, replacement);
+          }
         }
-        template = template.replace(match.token, replacement);
       });
     }
     return template;
