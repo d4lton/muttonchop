@@ -12,6 +12,7 @@ const fs = require('fs');
 const meow = require('meow');
 const http = require('http');
 const url = require("url");
+const syncrequest = require('sync-request');
 
 const version = '2.0.0';
 
@@ -26,7 +27,7 @@ var daemonOptions = {
 //
 
 function usage(exit) {
-  const usage = 'usage: $ muttonchop [--webroot <directory-name>] [--port <port>] [--index <index-file-path>] [--datafile <data-file-path>]';
+  const usage = 'usage: $ muttonchop [--webroot <directory-name>] [--port <port>] [--index <index-file-path>] [--datafile <data-file-path>] [--output <html-output-path>]';
   if (exit) {
     console.log(usage);
     process.exit(1);
@@ -123,21 +124,71 @@ function execute(code, data, context) {
 }
 
 function getTokenMatches(template) {
-  var matches = [];
-  var regex = /<<(.+?)>>/ig;
-  var match;
+  var match = null, matches = [], regex = /<<([\s\S]+?)>>/mig;
   while ((match = regex.exec(template)) !== null) { matches.push(match); }
   return matches;
 }
 
+function getMustacheMatches(template) {
+  var match = null, matches = [], regex = /{{([\s\S]+?)}}/mig;
+  while ((match = regex.exec(template)) !== null) {
+    var parts = match[1].split(' ').map(function(it) {return it.trim().replace(/\"/g, '');});
+    matches.push({
+      token: match[0],
+      parts: parts
+    });
+  }
+  return matches;
+}
+
+function retrieveItems(metadata) {
+  metadata.item_data = {};
+  for (var i = 0; i < metadata.items; i++) {
+    var itemId = 'item' + (i + 1);
+    var skuIndex = Math.floor(Math.random() * metadata.item_set.length);
+    var sku = metadata.item_set[skuIndex];
+    var url = 'http://lxprtsapi01.nanigans.com:8080/product-feed/sku?app_id=' + metadata.app_id + '&feed_id=' + metadata.feed_id + '&sku=' + sku;
+    var response = syncrequest('GET', url);
+    var json = response.body.toString();
+    metadata.item_data[itemId] = JSON.parse(json);
+  }
+}
+
+function extractMetadata(template, data) {
+  data.metadata = null;
+  var regex = /<!--([\s\S]+?)-->/mig;
+  match = regex.exec(template);
+  if (match) {
+    template = template.replace(match[0], '');
+    data.metadata = JSON.parse(match[1].trim());
+    retrieveItems(data.metadata);
+  }
+  return template;
+}
+
 function parseTemplate(pathname, data, context) {
   try {
-    var template = fs.readFileSync(cli.flags.webroot + '/' + pathname).toString(); //.split('\n').join('');
+
+    var template = fs.readFileSync(cli.flags.webroot + '/' + pathname).toString();
+    template = extractMetadata(template, data);
     var matches = getTokenMatches(template);
     matches.forEach(function(match) {
       template = template.replace(match[0], execute(match[1], data, context));
     });
+    if (data.metadata) {
+      matches = getMustacheMatches(template);
+      matches.forEach(function(match) {
+        var replacement = '';
+        if (match.parts.length === 2) {
+          replacement = match.parts[1];
+        } else {
+          replacement = data.metadata.item_data[match.parts[1]].data.columns[match.parts[2]][0];
+        }
+        template = template.replace(match.token, replacement);
+      });
+    }
     return template;
+
   } catch (error) {
     console.log(error.toString());
   }

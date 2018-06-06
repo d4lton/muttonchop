@@ -12,6 +12,7 @@
   "author": "Dana Basken",
   "license": "MIT",
   "dependencies": {
-    "meow": "^5.0.0"
+    "meow": "^5.0.0",
+    "sync-request": "^6.0.0"
   }
 }

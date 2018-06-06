@@ -1,0 +1,22 @@
+<!--
+{
+   "app_id":634098,
+   "width":160,
+   "height":600,
+   "items":1,
+   "feed_id":2179926,
+   "item_set":[98694, 6719423, 571104, 1557166, 91981, 258995, 649287, 11985029, 487673, 508086, 231637, 2179919, 455095, 87695, 2545026, 223046, 285447, 225569, 318410, 498186]
+}
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<a class="item" href="{{DESTINATION "item1" "item_link"}}" target="_blank">
+    <img src="{{IMAGE "item1" "image_link" 142 142}}" />
+    <span>{{TEXT "item1" "title" }}</span>
+</a>
+</body>
+</html>
