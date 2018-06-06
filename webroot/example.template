@@ -8,5 +8,6 @@
     <h1>This is HTML generated from a template</h1>
     <h2>Data: <<name>> <<backgroundColor>> <<  foregroundColor >></h2>
     << loop components/example_component.template user users >>
+    {{ some-mustache-variable }}
   </body>
 </html>
