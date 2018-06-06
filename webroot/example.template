@@ -1,0 +1,12 @@
+<html>
+  <head>
+    <title>Example</title>
+    << import styles/style.css >>
+    << import styles/font.css >>
+  </head>
+  <body>
+    <h1>This is HTML generated from a template</h1>
+    <h2>Data: <<name>> <<backgroundColor>> <<  foregroundColor >></h2>
+    << loop components/example_component.template user users >>
+  </body>
+</html>

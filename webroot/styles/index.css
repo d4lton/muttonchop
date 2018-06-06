@@ -1,0 +1,39 @@
+<style>
+
+  @import url('https://fonts.googleapis.com/css?family=Jua');
+  @import url('https://fonts.googleapis.com/css?family=Jua|Luckiest+Guy');
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #101010;
+    color: #FFFFFF;
+  }
+
+  .template-title {
+    width: 100%;
+    margin: 20px;
+    text-align: center;
+    font-family: 'Luckiest Guy', cursive;
+    font-size: 50px;
+    color: brown;
+    text-shadow: 2px 2px indianred;
+  }
+
+  .template-list {
+    margin: 20px;
+  }
+
+  .template-item {
+    margin: 10px;
+    font-family: 'Jua', sans-serif;
+    font-size: 32px;
+  }
+
+  .template-item a {
+    color: #0000C0;
+    text-decoration: none;
+    text-shadow: 2px 2px #000080;
+  }
+
+</style>

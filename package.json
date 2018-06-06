@@ -12,7 +12,6 @@
   "author": "Dana Basken",
   "license": "MIT",
   "dependencies": {
-    "meow": "^5.0.0",
-    "mustache": "^2.3.0"
+    "meow": "^5.0.0"
   }
 }

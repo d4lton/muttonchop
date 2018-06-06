@@ -1,0 +1,12 @@
+<html>
+  <head>
+    <title>MuttonChop</title>
+    << import styles/index.css >>
+  </head>
+  <body>
+    <h1 class="template-title">MuttonChop</h1>
+    <ul class="template-list">
+      << loop components/templateItem.template template templates >>
+    </ul>
+  </body>
+</html>

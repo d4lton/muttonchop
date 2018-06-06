@@ -1,6 +1,6 @@
 # MuttonChop
   Mustache Processor for RTB Templates
 
-  `usage: $ muttonchop [--jsonfile <json-data-file>] [--output <output-html-file>] <main-html-file>`
+  `usage: $ muttonchop [--webroot <directory-name>] [--port <port>] [--index <index-file-path>] [--datafile <data-file-path>]`
 
-  `$ ./muttonchop examples/main.mustache --json examples/data.json`
+  `$ ./muttonchop --datafile ./example-data.json`

@@ -2,92 +2,213 @@
 
 // =================================================================================================
 //
-// MuttonChop v1.0.0
+// MuttonChop v2.0.0
 // Nanigans, Inc.
 // Copyright ©2018, All Rights Reserved
 //
 // =================================================================================================
 
 const fs = require('fs');
-const Mustache = require('mustache');
 const meow = require('meow');
+const http = require('http');
+const url = require("url");
+
+const version = '2.0.0';
+
+var daemonOptions = {
+  outFile: 'server.out',
+  errFile: 'server.err',
+  max: 3
+};
 
 //
 // Get command-line input:
 //
 
-const usage = 'usage: $ muttonchop [--jsonfile <json-data-file>] [--output <output-html-file>] <main-html-file>';
-const cli = meow(usage, {
+function usage(exit) {
+  const usage = 'usage: $ muttonchop [--webroot <directory-name>] [--port <port>] [--index <index-file-path>] [--datafile <data-file-path>]';
+  if (exit) {
+    console.log(usage);
+    process.exit(1);
+  } else {
+    return usage;
+  }
+}
+
+const cli = meow(usage(), {
   flags: {
-    jsonfile: {
+    webroot: {
       type: 'string',
-      alias: 'json'
+      default: 'webroot'
     },
     output: {
+      type: 'string',
+      default: 'output'
+    },
+    port: {
+      type: 'string',
+      default: '8080'
+    },
+    index: {
+      type: 'string',
+      default: 'index.template'
+    },
+    datafile: {
       type: 'string'
     }
   }
 });
 
-if (cli.input.length === 0) {
-  console.log(usage);
-  process.exit(1);
+if (!cli.flags.webroot) { usage(true); }
+
+const port = parseInt(cli.flags.port);
+const serverUrl = 'http://localhost:' + port;
+
+function sendResponse(response, code, message) {
+  response.writeHead(code);
+  response.write(message);
+  response.end();
 }
 
-const mainfilename = cli.input[0];
-
-//
-// Load data file if requested
-//
-
-var data = {};
-if (cli.flags.jsonfile) {
-  data = JSON.parse(fs.readFileSync(cli.flags.jsonfile).toString());
+function getDottedKeyValue(key, data) {
+  var keyParts = key.split('.');
+  var object = data;
+  keyParts.forEach(function(keyPart) {
+    if (object) { object = object[keyPart]; }
+  });
+  return object;
 }
 
-//
-// Read the main mustache file
-//
+function getDataValue(key, data, context) {
+  var value = getDottedKeyValue(key, data);
+  if (context.prefix) {
+    var prefixedValue = getDottedKeyValue(context.prefix + '.' + key, data);
+    if (prefixedValue) { value = prefixedValue; }
+  }
+  return value;
+}
 
-const mainfile = fs.readFileSync(mainfilename).toString();
+function execute(code, data, context) {
+  context = context || {};
+  var params = code.split(' ').map(function(param) {return param.trim()}).filter(function(param) {return param !== ''});
+  if (params.length > 0) {
+    var command = params.shift();
+    switch (command) {
+      case 'import': // import <path> [<data-key-prefix>]
+        var pathname = params.shift();
+        context.prefix = undefined;
+        if (params.length > 0) { context.prefix = params.shift(); }
+        return parseTemplate(pathname, data, context);
+        break;
+      case 'loop': // loop <path> <loop-variable> <data-array-key> [<data-key-prefix>]
+        var pathname = params.shift();
+        var loopVariable = params.shift();
+        var dataArrayKey = params.shift();
+        context.prefix = undefined;
+        if (params.length > 0) { context.prefix = params.shift(); }
+        var dataArray = getDataValue(dataArrayKey, data, context);
+        if (Array.isArray(dataArray)) {
+          return dataArray.filter(function(it) {return it;}).map(function(dataElement) {
+            data[loopVariable] = dataElement;
+            return parseTemplate(pathname, data, context);
+          }).join('');
+        }
+        break;
+      default:
+        return getDataValue(command, data, context);
+        break;
+    }
+  }
+  return '';
+}
 
-//
-// Extract all "partial" (aka include) files
-//
+function getTokenMatches(template) {
+  var matches = [];
+  var regex = /<<(.+?)>>/ig;
+  var match;
+  while ((match = regex.exec(template)) !== null) { matches.push(match); }
+  return matches;
+}
 
-var regex = /{{\s*>\s*(.+?)\s*}}/ig;
-var match, partials = [];
-while ((match = regex.exec(mainfile)) !== null) { partials.push(match[1]); }
+function parseTemplate(pathname, data, context) {
+  try {
+    var template = fs.readFileSync(cli.flags.webroot + '/' + pathname).toString(); //.split('\n').join('');
+    var matches = getTokenMatches(template);
+    matches.forEach(function(match) {
+      template = template.replace(match[0], execute(match[1], data, context));
+    });
+    return template;
+  } catch (error) {
+    console.log(error.toString());
+  }
+}
 
-//
-// Create a Promise to read each of the partials
-//
+function getData(data) {
+  var data = data || {};
+  if (cli.flags.datafile) {
+    try {
+      var json = fs.readFileSync(cli.flags.datafile);
+      data = Object.assign(data, JSON.parse(json));
+    } catch (error) {
+      console.log(error);
+    }
+  }
+  return data;
+}
 
-var promises = partials.map(function(partial) {
-  return new Promise(function(resolve, reject) {
-    fs.readFile(partial + '.mustache', function(error, data) {
+function constructHtmlFromTemplate(pathname, data) {
+  return parseTemplate(pathname, getData(data));
+}
+
+function sendIndex(request, response) {
+  try {
+    fs.readdir(cli.flags.webroot, function(error, items) {
       if (error) {
-        reject(error);
+        sendResponse(response, 500, error.toString());
       } else {
-        resolve({partial: partial, data: data.toString()});
+        var templates = items.map(function(item) {
+          if (item !== cli.flags.index && item.indexOf('.template') !== -1) { return {pathname: item}; }
+        });
+        var html = constructHtmlFromTemplate(cli.flags.index, {templates: templates});
+        sendResponse(response, 200, html);
       }
     });
-  });
-});
-
-//
-// Load in all the partials, then render the main mustache file
-//
-
-Promise.all(promises).then(function(partialsResults) {
-  var combinedPartials = {};
-  partialsResults.forEach(function(partialsResult) {
-    combinedPartials[partialsResult.partial] = partialsResult.data;
-  });
-  var output = Mustache.render(mainfile, data, combinedPartials);
-  if (cli.flags.output) {
-    fs.writeFileSync(cli.flags.output, output);
-  } else {
-    console.log(output);
+  } catch (error) {
+    console.log(error);
+    sendResponse(response, 404, error.message);
   }
-});
+}
+
+function sendHtml(request, response, pathname) {
+  // build HTML from pathname as the main template
+  var html = constructHtmlFromTemplate(pathname);
+  if (html) {
+    pathname = pathname.replace('.template', '.html');
+    fs.writeFileSync(cli.flags.output + '/' + pathname, html);
+    sendResponse(response, 200, html);
+  } else {
+    sendResponse(response, 404, 'Not Found');
+  }
+}
+
+//
+// Start HTTP server
+//
+
+console.log('MuttonChop v' + version + ' started.');
+console.log('  URL: ' + serverUrl);
+console.log('  webroot: ' + cli.flags.webroot);
+
+http.createServer(function(request, response) {
+
+  var pathname = url.parse(request.url).pathname;
+
+  if (pathname === '/') {
+    sendIndex(request, response);
+  } else if (pathname.indexOf('..') !== -1) {
+    sendResponse(response, 400, 'Not Found');
+  } else {
+    sendHtml(request, response, pathname);
+  }
+
+}).listen(port);
