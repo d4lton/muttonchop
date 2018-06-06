@@ -2,17 +2,20 @@
 
   Template Compiler
   
-  `usage: $ muttonchop [--webroot <directory-name>] [--port <port>] [--index <index-file-path>] [--datafile <data-file-path>]`
+  `usage: $ muttonchop [--webroot <directory-name>] [--port <port>] [--index <index-file-path>] [--datafile <data-file-path>] [--output <html-output-path>]`
   
   defaults:  
   `--webroot`: `webroot`  
   `--port`: `8080`  
   `--index`: `index.template` (under `--webroot`)  
   `--datafile`: (none)  
+  `--output`: `output`
   
   `$ ./muttonchop --datafile ./example-data.json`
 
   This command will run MuttonChop on the default port and use `./example-data.json` as the data source for all template rendering.
+  
+  Point your web browser at the URL shown by MuttonChop when it runs. By default, this is `http://localhost:8080`. From there, each template under `--webroot` will be listed. Clicking on one will render the HTML, display it in the browser, and also create an HTML file under `--output`.
   
 ---
   
