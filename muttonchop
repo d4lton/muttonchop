@@ -22,10 +22,11 @@ var daemonOptions = {
   max: 3
 };
 
-//
-// Get command-line input:
-//
-
+/**
+ * Show or return program usage. Exit the program if showing usage.
+ * @param exit {boolean} If true, show the usage on stdout and exit the program, otherwise just return usage (for meow, mainly).
+ * @returns {string} The program usage (if exit is not true)
+ */
 function usage(exit) {
   const usage = 'usage: $ muttonchop [--webroot <directory-name>] [--port <port>] [--index <index-file-path>] [--datafile <data-file-path>] [--output <html-output-path>]';
   if (exit) {
@@ -65,12 +66,24 @@ if (!cli.flags.webroot) { usage(true); }
 const port = parseInt(cli.flags.port);
 const serverUrl = 'http://localhost:' + port;
 
+/**
+ * Send a standardized HTTP response.
+ * @param response {object} The HTTP response object
+ * @param code {number} The HTTP result code
+ * @param message {string} The response body
+ */
 function sendResponse(response, code, message) {
   response.writeHead(code);
   response.write(message);
   response.end();
 }
 
+/**
+ * Get a dot-separated key from an object.
+ * @param key {string} The key, such as 'name' or 'user.name'
+ * @param data {object} The object that should contain the key
+ * @returns {*} The value associated with the key
+ */
 function getDottedKeyValue(key, data) {
   var keyParts = key.split('.');
   var object = data;
@@ -80,6 +93,14 @@ function getDottedKeyValue(key, data) {
   return object;
 }
 
+/**
+ * Get a dot-separated key from an object, first checking the actual key, then looking to see if a prefixed version of the key is available.
+ * Used to get a default value from an object, or a more specific value (for example, one specific to a customer).
+ * @param key {string} The key
+ * @param data {object} The object that should contain the key
+ * @param context {object} A context object that may or may not have a prefix property
+ * @returns {*} The value associated with the key
+ */
 function getDataValue(key, data, context) {
   var value = getDottedKeyValue(key, data);
   if (context.prefix) {
@@ -89,6 +110,13 @@ function getDataValue(key, data, context) {
   return value;
 }
 
+/**
+ * Execute a command contained in a MuttonChop token and return the result.
+ * @param code {string} The MuttonChop token, such as 'include style/main.css'
+ * @param data {object} The data object used to look up values
+ * @param context {object} Additional transient data used to look up values, mainly to provide prefix for data keys
+ * @returns {string} The resulting HTML
+ */
 function execute(code, data, context) {
   context = context || {};
   var params = code.split(' ').map(function(param) {return param.trim()}).filter(function(param) {return param !== ''});
