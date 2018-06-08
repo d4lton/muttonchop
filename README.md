@@ -48,3 +48,14 @@ As with normal `import`, there is an optional `data-key-prefix`.
 ### Examples
 
 See the example templates under the `webroot` directory in the repo.
+
+### Installation
+
+After cloning the muttonchop repo to your computer, make sure to:
+
+```
+$ cd muttonchop
+$ npm install
+```
+
+This will make sure the required NodeJS modules are installed.
