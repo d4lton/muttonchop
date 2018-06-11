@@ -1,13 +1,19 @@
 <html>
   <head>
     <title>Example</title>
-    << import styles/style.css >>
-    << import styles/font.css >>
+    << import('styles/style.css'); >>
+    << import('styles/font.css'); >>
   </head>
   <body>
     <h1>This is HTML generated from a template</h1>
-    <h2>Data: <<name>> <<backgroundColor>> <<  foregroundColor >></h2>
-    << loop components/example_component.template user users >>
-    {{ some-mustache-variable }}
+    <h2>Data: <<print(data.name); >> <<print(data.backgroundColor); >> <<  print(data.foregroundColor); >></h2>
+    << data.users.forEach(function(user) { >>
+      << import('components/example_component.template'); >>
+    << }); >>
+    <p>Hello, << print(data.name); >>!</p>
+    <p>{{ some-mustache-variable }}</p>
+    << if (data.type == "standard") { >>
+      <p>This is a standard template.</p>
+    << } >>
   </body>
 </html>

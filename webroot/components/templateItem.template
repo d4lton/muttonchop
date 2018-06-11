@@ -1,1 +1,3 @@
-<li class="template-item"><a href="<<template.pathname>>"><<template.pathname>></a></li>
+<li class="template-item">
+  <a href="<<print(template.pathname);>>"><<print(template.pathname);>></a>
+</li>

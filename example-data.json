@@ -1,16 +1,11 @@
 {
   "name": "Dana",
+  "type": "standard",
   "backgroundColor": "black",
   "foregroundColor": "white",
   "users": [
     {"name": "Dana"},
     {"name": "Roger"},
     {"name": "Nat"}
-  ],
-  "company": {
-    "ruelala": {
-      "backgroundColor": "red",
-      "foregroundColor": "pink"
-    }
-  }
+  ]
 }

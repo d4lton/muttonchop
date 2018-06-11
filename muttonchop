@@ -13,6 +13,7 @@ const meow = require('meow');
 const http = require('http');
 const url = require("url");
 const syncrequest = require('sync-request');
+const MuttonChop = require('./lib/MuttonChop/MuttonChop.js');
 
 const version = '2.0.0';
 
@@ -41,11 +42,11 @@ const cli = meow(usage(), {
   flags: {
     webroot: {
       type: 'string',
-      default: 'webroot'
+      default: process.cwd() + '/webroot'
     },
     output: {
       type: 'string',
-      default: 'output'
+      default: process.cwd() + '/output'
     },
     port: {
       type: 'string',
@@ -78,155 +79,6 @@ function sendResponse(response, code, message) {
   response.end();
 }
 
-/**
- * Get a dot-separated key from an object.
- * @param key {string} The key, such as 'name' or 'user.name'
- * @param data {object} The object that should contain the key
- * @returns {*} The value associated with the key
- */
-function getDottedKeyValue(key, data) {
-  var keyParts = key.split('.');
-  var object = data;
-  keyParts.forEach(function(keyPart) {
-    if (object) { object = object[keyPart]; }
-  });
-  return object;
-}
-
-/**
- * Get a dot-separated key from an object, first checking the actual key, then looking to see if a prefixed version of the key is available.
- * Used to get a default value from an object, or a more specific value (for example, one specific to a customer).
- * @param key {string} The key
- * @param data {object} The object that should contain the key
- * @param context {object} A context object that may or may not have a prefix property
- * @returns {*} The value associated with the key
- */
-function getDataValue(key, data, context) {
-  var value = getDottedKeyValue(key, data);
-  if (context.prefix) {
-    var prefixedValue = getDottedKeyValue(context.prefix + '.' + key, data);
-    if (prefixedValue) { value = prefixedValue; }
-  }
-  return value;
-}
-
-/**
- * Execute a command contained in a MuttonChop token and return the result.
- * @param code {string} The MuttonChop token, such as 'include style/main.css'
- * @param data {object} The data object used to look up values
- * @param context {object} Additional transient data used to look up values, mainly to provide prefix for data keys
- * @returns {string} The resulting HTML
- */
-function execute(code, data, context) {
-  context = context || {};
-  var params = code.split(' ').map(function(param) {return param.trim()}).filter(function(param) {return param !== ''});
-  if (params.length > 0) {
-    var command = params.shift();
-    switch (command) {
-      case 'import': // import <path> [<data-key-prefix>]
-        var pathname = params.shift();
-        context.prefix = undefined;
-        if (params.length > 0) { context.prefix = params.shift(); }
-        return parseTemplate(pathname, data, context);
-        break;
-      case 'loop': // loop <path> <loop-variable> <data-array-key> [<data-key-prefix>]
-        var pathname = params.shift();
-        var loopVariable = params.shift();
-        var dataArrayKey = params.shift();
-        context.prefix = undefined;
-        if (params.length > 0) { context.prefix = params.shift(); }
-        var dataArray = getDataValue(dataArrayKey, data, context);
-        if (Array.isArray(dataArray)) {
-          return dataArray.filter(function(it) {return it;}).map(function(dataElement) {
-            data[loopVariable] = dataElement;
-            return parseTemplate(pathname, data, context);
-          }).join('');
-        }
-        break;
-      default:
-        return getDataValue(command, data, context);
-        break;
-    }
-  }
-  return '';
-}
-
-function getTokenMatches(template) {
-  var match = null, matches = [], regex = /<<([\s\S]+?)>>/mig;
-  while ((match = regex.exec(template)) !== null) { matches.push(match); }
-  return matches;
-}
-
-function getMustacheMatches(template) {
-  var match = null, matches = [], regex = /{{([\s\S]+?)}}/mig;
-  while ((match = regex.exec(template)) !== null) {
-    var parts = match[1].split(' ').map(function(it) {return it.trim().replace(/\"/g, '');});
-    matches.push({
-      token: match[0],
-      parts: parts
-    });
-  }
-  return matches;
-}
-
-function retrieveItems(metadata) {
-  metadata.item_data = {};
-  for (var i = 0; i < metadata.items; i++) {
-    var itemId = 'item' + (i + 1);
-    var skuIndex = Math.floor(Math.random() * metadata.item_set.length);
-    var sku = metadata.item_set[skuIndex];
-    var url = 'http://lxprtsapi01.nanigans.com:8080/product-feed/sku?app_id=' + metadata.app_id + '&feed_id=' + metadata.feed_id + '&sku=' + sku;
-    var response = syncrequest('GET', url);
-    var json = response.body.toString();
-    if (json) {
-      metadata.item_data[itemId] = JSON.parse(json);
-    }
-  }
-}
-
-function extractMetadata(template, data) {
-  data.metadata = null;
-  var regex = /<!--([\s\S]+?)-->/mig;
-  match = regex.exec(template);
-  if (match) {
-    template = template.replace(match[0], '');
-    data.metadata = JSON.parse(match[1].trim());
-    retrieveItems(data.metadata);
-  }
-  return template;
-}
-
-function parseTemplate(pathname, data, context) {
-  try {
-
-    var template = fs.readFileSync(cli.flags.webroot + '/' + pathname).toString();
-    template = extractMetadata(template, data);
-    var matches = getTokenMatches(template);
-    matches.forEach(function(match) {
-      template = template.replace(match[0], execute(match[1], data, context));
-    });
-    if (data.metadata) {
-      matches = getMustacheMatches(template);
-      matches.forEach(function(match) {
-        // if the mustache token is something like {{ "IMAGE" "item1" "image_link" }} and we have data for item1, do replacement
-        if (match.parts.length > 2) {
-          var itemId = match.parts[1];
-          var columnId = match.parts[2];
-          var itemData = data.metadata.item_data[itemId];
-          if (itemData && itemData.data) {
-            replacement = itemData.data.columns[columnId][0];
-            template = template.replace(match.token, replacement);
-          }
-        }
-      });
-    }
-    return template;
-
-  } catch (error) {
-    console.log(error.toString());
-  }
-}
-
 function getData(data) {
   var data = data || {};
   if (cli.flags.datafile) {
@@ -241,18 +93,25 @@ function getData(data) {
 }
 
 function constructHtmlFromTemplate(pathname, data) {
-  return parseTemplate(pathname, getData(data));
+  try {
+    data = getData(data);
+    var template = fs.readFileSync(pathname).toString();
+    var renderer = new MuttonChop(template);
+    return renderer.render(data);
+  } catch (error) {
+    console.log(error.message);
+  }
 }
 
 function sendIndex(request, response) {
   try {
-    fs.readdir(cli.flags.webroot, function(error, items) {
+    fs.readdir('.', function(error, items) {
       if (error) {
         sendResponse(response, 500, error.toString());
       } else {
         var templates = items.map(function(item) {
           if (item !== cli.flags.index && item.indexOf('.template') !== -1) { return {pathname: item}; }
-        });
+        }).filter(function(it) {return it;});
         var html = constructHtmlFromTemplate(cli.flags.index, {templates: templates});
         sendResponse(response, 200, html);
       }
@@ -283,6 +142,8 @@ console.log('MuttonChop v' + version + ' started.');
 console.log('  URL: ' + serverUrl);
 console.log('  webroot: ' + cli.flags.webroot);
 
+process.chdir(cli.flags.webroot);
+
 http.createServer(function(request, response) {
 
   var pathname = url.parse(request.url).pathname;
@@ -292,6 +153,7 @@ http.createServer(function(request, response) {
   } else if (pathname.indexOf('..') !== -1) {
     sendResponse(response, 400, 'Not Found');
   } else {
+    pathname = pathname.replace(/^\//, '');
     sendHtml(request, response, pathname);
   }
 
