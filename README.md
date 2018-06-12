@@ -11,9 +11,9 @@
   `--datafile`: (none)  
   `--output`: `output`
   
-  `$ ./muttonchop --datafile ./example-data.json`
+  `$ ./muttonchop --datafile /Users/dana/muttonchop/example-data.json`
 
-  This command will run MuttonChop on the default port and use `./example-data.json` as the data source for all template rendering.
+  This command will run MuttonChop on the default port and use `/Users/dana/muttonchop/example-data.json` as the data source for all template rendering.
   
   Point your web browser at the URL shown by MuttonChop when it runs. By default, this is `http://localhost:8080`. From there, each template under `--webroot` will be listed. Clicking on one will render the HTML, display it in the browser, and also create an HTML file under `--output`.
   
@@ -25,25 +25,33 @@ All MuttonChop tokens are surrounded by `<<` and `>>`.
 
 All file paths are relative under the `--webroot` directory.
 
+All code inside `<<` and `>>` is standard Javascript. There are two provided functions: `import()` and `print()`, see below.
+
+### Data variables
+
+All data available in a template is provided in the `data` Javascript object. If you provided a data file using `--datafile`, those values will be merged into the `data` object.
+
 ### Importing another template
 
-`<< import filepath [data-key-prefix] >>`
+`<< import('filepath'); >>`
 
 The `filepath` is the path under `webroot`.
 
-The optional `data-key-prefix` specifies a prefix to be added to a key in the provided datafile to give (for example) customer-specific values that override a default value.
+### Looping
 
-### Looping of another template
+`<< data.users.forEach(function(user) { >>`
 
-`<< loop filepath variable data-key [data-key-prefix] >>`
+`<!-- do something with "user" inside here, such as printing the user's name -->`
+
+`<h1>Hello, << print(user.name); >>! </h1>`
+
+`<< }); >>`
 
 Like above, `filepath` is the path under `webroot`.
 
-The `variable` is the name you want the value from the `data-key` array placed in for each pass through the loop.
+### Printing a value
 
-The `data-key` is the name of the key in the provided datafile, it must be an array.
-
-As with normal `import`, there is an optional `data-key-prefix`.
+`<< print(data.users.length); >>`
 
 ### Examples
 
