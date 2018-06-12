@@ -1,6 +1,6 @@
 {
   "name": "muttonchop",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "description": "Mustache Processor for RTB Templates",
   "main": "muttonchop",
   "scripts": {

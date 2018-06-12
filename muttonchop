@@ -15,7 +15,7 @@ const url = require("url");
 const syncrequest = require('sync-request');
 const MuttonChop = require('./lib/MuttonChop/MuttonChop.js');
 
-const version = '2.0.0';
+const version = '2.1.0';
 
 var debug = false;
 
