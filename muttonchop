@@ -17,6 +17,8 @@ const MuttonChop = require('./lib/MuttonChop/MuttonChop.js');
 
 const version = '2.0.0';
 
+var debug = false;
+
 var daemonOptions = {
   outFile: 'server.out',
   errFile: 'server.err',
@@ -81,6 +83,7 @@ function sendResponse(response, code, message) {
 
 function getData(data) {
   var data = data || {};
+  data.debug = debug;
   if (cli.flags.datafile) {
     try {
       var json = fs.readFileSync(cli.flags.datafile);
@@ -146,7 +149,15 @@ process.chdir(cli.flags.webroot);
 
 http.createServer(function(request, response) {
 
-  var pathname = url.parse(request.url).pathname;
+  const requestUrl = url.parse(request.url, true);
+  var pathname = requestUrl.pathname;
+  var query = requestUrl.query;
+
+  if (query.debug) {
+    debug = true;
+  } else {
+    debug = false;
+  }
 
   if (pathname === '/') {
     sendIndex(request, response);
